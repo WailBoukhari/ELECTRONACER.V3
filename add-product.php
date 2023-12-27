@@ -3,68 +3,65 @@ require 'db_cnx.php';
 
 // Check for form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit'])) {
-    // Sanitize and validate form data
-    $references = $_POST['reference'];
-    $labels = $_POST['product_name'];
-    $descriptions = $_POST['description'];
-    $purchase_prices = $_POST['purchase_price'];
-    $barcodes = $_POST['barcode'];
-    $price_offers = $_POST['price_offer'];
-    $final_prices = $_POST['final_price'];
-    $min_quantities = $_POST['min_quantity'];
-    $stock_quantities = $_POST['stock_quantity'];
-    $images = $_FILES['image'];
-    $categories = $_POST['category'];
+    // Prepare and bind the INSERT statement
+    $stmt = $conn->prepare("INSERT INTO Products (reference, label, description, purchase_price, barcode, price_offer, final_price, min_quantity, stock_quantity, image, category_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
 
-    // Loop through each set of product data
-    for ($i = 0; $i < count($references); $i++) {
-        // Sanitize data before insertion (consider using prepared statements for security)
-        $reference = mysqli_real_escape_string($conn, $references[$i]);
-        $label = mysqli_real_escape_string($conn, $labels[$i]);
-        $description = mysqli_real_escape_string($conn, $descriptions[$i]);
-        $purchase_price = floatval($purchase_prices[$i]); // Assuming purchase price is a decimal/float
-        $barcode = mysqli_real_escape_string($conn, $barcodes[$i]);
-        $price_offer = floatval($price_offers[$i]); // Assuming price offer is a decimal/float
-        $final_price = floatval($final_prices[$i]); // Assuming final price is a decimal/float
-        $min_quantity = intval($min_quantities[$i]); // Assuming min quantity is an integer
-        $stock_quantity = intval($stock_quantities[$i]); // Assuming stock quantity is an integer
-        $category_id = intval($categories[$i]); // Assuming category ID is an integer
-        $checkCategoryQuery = "SELECT category_id FROM Categories WHERE category_id = $category_id";
-        $checkCategoryResult = mysqli_query($conn, $checkCategoryQuery);
-        // Handle image upload
-        $img_name = mysqli_real_escape_string($conn, $images['name'][$i]);
-        $img_size = $_FILES['image']['size'][$i];
-        $tmp_name = $_FILES['image']['tmp_name'][$i];
-        $error = $_FILES['image']['error'][$i];
+    // Check if the statement preparation was successful
+    if ($stmt) {
+        // Bind parameters
+        $stmt->bind_param("sssdssddddi", $reference, $label, $description, $purchase_price, $barcode, $price_offer, $final_price, $min_quantity, $stock_quantity, $new_img_name, $category_id);
 
-        // Check if the uploaded image is valid
-        $img_ex = pathinfo($img_name, PATHINFO_EXTENSION);
-        $img_ex_lc = strtolower($img_ex);
-        $allowed_exs = array("jpg", "jpeg", "png");
+        // Loop through each set of product data
+        for ($i = 0; $i < count($references); $i++) {
+            // Sanitize data before insertion
+            $reference = $references[$i];
+            $label = $labels[$i];
+            $description = $descriptions[$i];
+            $purchase_price = floatval($purchase_prices[$i]);
+            $barcode = $barcodes[$i];
+            $price_offer = floatval($price_offers[$i]);
+            $final_price = floatval($final_prices[$i]);
+            $min_quantity = intval($min_quantities[$i]);
+            $stock_quantity = intval($stock_quantities[$i]);
+            $category_id = intval($categories[$i]);
 
-        if (in_array($img_ex_lc, $allowed_exs)) {
-            $new_img_name = uniqid("IMG-", true) . '.' . $img_ex_lc;
-            $img_upload_path = './img/' . $new_img_name;
-            move_uploaded_file($tmp_name, $img_upload_path);
-            if (mysqli_num_rows($checkCategoryResult) > 0) {
-                // Insert a new product into the 'Products' table without prepared statements
-                // Insert a new product into the 'Products' table
-                $query = "INSERT INTO Products (reference, label, description, purchase_price, barcode, price_offer, final_price, min_quantity, stock_quantity, image, category_id) 
-VALUES ('$reference', '$label', '$description', $purchase_price, '$barcode', $price_offer, $final_price, $min_quantity, $stock_quantity, '$new_img_name', $category_id)";
+            // Handle image upload
+            $img_name = $images['name'][$i];
+            $img_ex = pathinfo($img_name, PATHINFO_EXTENSION);
+            $img_ex_lc = strtolower($img_ex);
+            $allowed_exs = array("jpg", "jpeg", "png");
+
+            if (in_array($img_ex_lc, $allowed_exs)) {
+                $new_img_name = uniqid("IMG-", true) . '.' . $img_ex_lc;
+                $img_upload_path = './img/' . $new_img_name;
+                move_uploaded_file($images['tmp_name'][$i], $img_upload_path);
+
+                // Execute the statement
+                $stmt->execute();
+
+                // Check for success or error
+                if ($stmt->affected_rows > 0) {
+                    // Successfully inserted
+                    echo "Product added successfully!";
+                } else {
+                    // Error inserting
+                    echo "Error: " . $stmt->error;
+                }
             }
         }
 
-        if (mysqli_query($conn, $query)) {
-            // Successfully inserted
-            echo "Product added successfully!";
-        } else {
-            // Error inserting
-            echo "Error: " . mysqli_error($conn);
-        }
+        // Close the statement
+        $stmt->close();
+    } else {
+        // Error preparing the statement
+        echo "Error: " . $conn->error;
     }
-}
 
+    // Close the database connection
+    $conn->close();
+}
 ?>
+
 
 <!DOCTYPE html>
 <html lang="en">

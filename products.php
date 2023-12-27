@@ -1,6 +1,7 @@
 <?php
-session_start(); // Start the session
-include 'db_cnx.php'; // Include your database connection file
+session_start();
+include 'db_cnx.php';
+
 // Fetch user information
 $userId = isset($_SESSION['user_id']) ? $_SESSION['user_id'] : '';
 $username = isset($_SESSION['username']) ? $_SESSION['username'] : '';
@@ -62,7 +63,7 @@ if ($searchFilter != '') {
 
 // Fetch low on stock products if the filter is applied
 if (isset($_GET['lowOnStock'])) {
-    $productQuery .= " AND stock_quantity <= min_quantity";
+    $productQuery .= " AND stock_quantity <= 10";
 }
 
 // Add the limit clause to the query
@@ -70,6 +71,7 @@ $productQuery .= " LIMIT $startIndex, $productsPerPage";
 
 // Fetch products
 $productResult = mysqli_query($conn, $productQuery);
+
 ?>
 
 <!DOCTYPE html>
@@ -88,9 +90,8 @@ $productResult = mysqli_query($conn, $productQuery);
     </style>
 </head>
 
-<body>
+<body id="content-container">
     <?php include("nav.php"); ?>
-
     <div class="container mt-5">
         <!-- Filter form -->
         <form method="get" id="filterForm">
@@ -132,22 +133,26 @@ $productResult = mysqli_query($conn, $productQuery);
             </div>
         </form>
 
-        <nav aria-label="Page navigation example">
+        <nav aria-label="Page navigation">
             <ul class="pagination">
                 <li class="page-item <?php echo ($page == 1) ? 'disabled' : ''; ?>">
-                    <a class="page-link" href="<?php echo generatePageLink($page - 1); ?>">Previous</a>
+                    <a class="page-link"
+                        href="<?php echo $_SERVER['PHP_SELF'] . '?page=' . ($page - 1); ?>">Previous</a>
                 </li>
                 <?php for ($i = 1; $i <= $totalPages; $i++) : ?>
                 <li class="page-item <?php echo ($page == $i) ? 'active' : ''; ?>">
-                    <a class="page-link" href="<?php echo generatePageLink($i); ?>"><?php echo $i; ?></a>
+                    <a class="page-link"
+                        href="<?php echo $_SERVER['PHP_SELF'] . '?page=' . $i . '&categoryFilter=' . urlencode($categoryFilter) . '&minPrice=' . urlencode($minPriceFilter) . '&maxPrice=' . urlencode($maxPriceFilter) . '&lowOnStock=' . urlencode($lowOnStock) . '&search=' . urlencode($searchFilter); ?>"><?php echo $i; ?></a>
+
                 </li>
                 <?php endfor; ?>
                 <li class="page-item <?php echo ($page == $totalPages || $totalPages == 0) ? 'disabled' : ''; ?>">
-                    <a class="page-link" href="<?php echo generatePageLink($page + 1); ?>">Next</a>
+                    <a class="page-link" href="<?php echo $_SERVER['PHP_SELF'] . '?page=' . ($page + 1); ?>">Next</a>
                 </li>
             </ul>
         </nav>
-        <div class="row" id="products-container">
+
+        <div class="row">
             <?php while ($row = mysqli_fetch_assoc($productResult)) : ?>
             <div class="col-md-4">
                 <div class="card">
@@ -171,41 +176,25 @@ $productResult = mysqli_query($conn, $productQuery);
             <?php endwhile; ?>
         </div>
     </div>
-    <?php
-    // Function to generate pagination link with current filters
-    function generatePageLink($pageNumber)
-    {
-        global $categoryFilter, $minPriceFilter, $maxPriceFilter, $lowOnStockFilter, $searchFilter;
 
-        $link = "?page=$pageNumber";
-        $link .= ($categoryFilter != '') ? "&categoryFilter=$categoryFilter" : '';
-        $link .= ($minPriceFilter != '') ? "&minPrice=$minPriceFilter" : '';
-        $link .= ($maxPriceFilter != '') ? "&maxPrice=$maxPriceFilter" : '';
-        $link .= ($lowOnStockFilter) ? '&lowOnStock=1' : '';
-        $link .= ($searchFilter != '') ? "&search=$searchFilter" : '';
-
-        return $link;
-    }
-    ?>
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
     <script>
     $(document).ready(function() {
         // Function to load content using AJAX
         function loadContent(url) {
-            // Using jQuery's ajax function to make an asynchronous GET request
             $.ajax({
-                type: 'GET', // HTTP request method
-                url: url, // URL to which the request is sent
+                type: 'GET',
+                url: url,
                 success: function(data) {
-                    // Callback function executed if the request is successful
-                    // It updates the HTML content of the element with ID 'products-container'
-                    $('#products-container').html(data);
+                    $('#content-container').html(data);
                 }
             });
         }
+
         // Submit the filter form using AJAX
         $('#filterForm').submit(function(event) {
             event.preventDefault();
-            var formData = $(this).serialize(); // Fix the typo here
+            var formData = $(this).serialize();
             loadContent('<?php echo $_SERVER['PHP_SELF']; ?>' + '?' + formData);
         });
 
@@ -218,11 +207,15 @@ $productResult = mysqli_query($conn, $productQuery);
                 '&minPrice=' + $('#minPrice').val() +
                 '&maxPrice=' + $('#maxPrice').val() +
                 '&lowOnStock=' + ($('#lowOnStock').val() == '1' ? '1' : '') +
-                // Check if the button is clicked
                 '&search=' + $('#search').val();
 
             loadContent(url);
         });
     });
     </script>
+
     <?php include("footer.php"); ?>
+
+</body>
+
+</html>
